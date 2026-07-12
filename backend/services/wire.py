@@ -38,27 +38,30 @@ async def wire_call(action_id: str, params: dict, cache_ttl: int = 300) -> dict:
     if cached is not None:
         return cached
 
+    # Real Anakin Wire spec: POST /v1/wire/task {"action_id","parameters"} → job_id,
+    # then poll GET /v1/wire/jobs/{job_id} for status/result.
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
             settings.wire_task_url, headers=HEADERS,
-            json={"action_id": action_id, "params": params},
+            json={"action_id": action_id, "parameters": params},
         )
         resp.raise_for_status()
         data = resp.json()
 
-        # Synchronous result
-        if "result" in data and not data.get("job"):
-            out = data["result"]
-            await set_cache(cache_key, out, ttl=cache_ttl)
-            return out
-
-        job_id = data.get("job")
+        job_id = data.get("job_id") or data.get("job") or data.get("jobId")
         if not job_id:
+            if "result" in data:
+                out = data["result"]
+                await set_cache(cache_key, out, ttl=cache_ttl)
+                return out
             return data
+
+        poll_path = data.get("poll_url") or f"/v1/wire/jobs/{job_id}"
+        poll_url = poll_path if poll_path.startswith("http") else f"https://api.anakin.io{poll_path}"
 
         for _ in range(45):
             await asyncio.sleep(1.5)
-            poll = await client.get(f"{settings.wire_job_url}/{job_id}", headers=HEADERS)
+            poll = await client.get(poll_url, headers=HEADERS)
             result = poll.json()
             if result.get("status") == "completed":
                 out = result.get("result", {})

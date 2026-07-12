@@ -25,8 +25,11 @@ async def run_lie_detector(
     origin_meta = AIRPORT_META.get(origin_iata, {})
     dest_meta = AIRPORT_META.get(destination_iata, {})
 
-    origin_metar_raw = await get_historical_metar(origin_meta.get("icao", origin_iata), date_str, hour_str)
-    dest_metar_raw = await get_historical_metar(dest_meta.get("icao", destination_iata), date_str, hour_str)
+    import asyncio
+    origin_metar_raw, dest_metar_raw = await asyncio.gather(
+        get_historical_metar(origin_meta.get("icao", origin_iata), date_str, hour_str),
+        get_historical_metar(dest_meta.get("icao", destination_iata), date_str, hour_str),
+    )
 
     origin_weather_wire = {}
     dest_weather_wire = {}
