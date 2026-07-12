@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #ffffff;
+  color: #14161c;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: #101114;
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cfd6e2;
+  border-radius: 99px;
+  border: 2px solid #fff;
+}
+
+@layer components {
+  .caps {
+    @apply uppercase tracking-caps text-[11.5px] font-semibold text-fog;
+  }
+  .panel {
+    @apply border border-line bg-surface rounded-2xl shadow-card;
+  }
+  .card {
+    @apply border border-line bg-surface rounded-2xl shadow-card
+      transition-all duration-300 hover:shadow-card-hover hover:-translate-y-0.5;
+  }
+  .btn-primary {
+    @apply font-body font-semibold text-[13px] bg-navy text-white px-6 py-3.5 rounded-xl
+      shadow-navy transition-all hover:brightness-125 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply font-body font-semibold text-[13px] border border-line-strong text-ink
+      px-6 py-3.5 rounded-xl transition-all hover:bg-surface-2;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold;
+  }
+  .hairline {
+    @apply h-px w-full bg-line;
+  }
+}
+
+
+/* Live pipeline — travelling pulse dot + LIVE ring */
+@keyframes pipe-travel {
+  0% { left: 0%; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+.pipe-dot { animation: pipe-travel 2.2s linear infinite; }
+@keyframes pipe-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22,182,126,.4); }
+  50% { box-shadow: 0 0 0 9px rgba(22,182,126,0); }
+}
+.pipe-live { animation: pipe-pulse 1.8s ease-in-out infinite; }
+
+/* Pipeline card extra animations */
+@keyframes pipe-fill { 0% { width: 0%; } 60% { width: 92%; } 100% { width: 92%; } }
+.pipe-fill { animation: pipe-fill 2.4s ease-out infinite; }
+@keyframes pipe-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.pipe-float { animation: pipe-float 3.2s ease-in-out infinite; }
+@keyframes pipe-chip { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+.pipe-chip { animation: pipe-chip 2.6s ease-in-out infinite; }
