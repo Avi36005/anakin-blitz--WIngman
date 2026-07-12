@@ -4,7 +4,7 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    # All optional so the app boots with NO keys (mock mode).
+    # Keys come from environment variables (Vercel env / local .env) — never committed.
     anakin_api_key: Optional[str] = None
     groq_api_key: Optional[str] = None
     groq_api_keys: Optional[str] = None  # comma/space/newline separated pool

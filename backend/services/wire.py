@@ -38,12 +38,12 @@ async def wire_call(action_id: str, params: dict, cache_ttl: int = 300) -> dict:
     if cached is not None:
         return cached
 
-    # Real Anakin Wire spec: POST /v1/wire/task {"action_id","parameters"} → job_id,
-    # then poll GET /v1/wire/jobs/{job_id} for status/result.
+    # Real Anakin Wire spec: POST /v1/wire/task {"action_id","params"} → job_id,
+    # then poll GET /v1/wire/jobs/{job_id}. NOTE: the key is "params" (not "parameters").
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
             settings.wire_task_url, headers=HEADERS,
-            json={"action_id": action_id, "parameters": params},
+            json={"action_id": action_id, "params": params},
         )
         resp.raise_for_status()
         data = resp.json()
@@ -59,12 +59,13 @@ async def wire_call(action_id: str, params: dict, cache_ttl: int = 300) -> dict:
         poll_path = data.get("poll_url") or f"/v1/wire/jobs/{job_id}"
         poll_url = poll_path if poll_path.startswith("http") else f"https://api.anakin.io{poll_path}"
 
-        for _ in range(45):
+        for _ in range(30):
             await asyncio.sleep(1.5)
             poll = await client.get(poll_url, headers=HEADERS)
             result = poll.json()
             if result.get("status") == "completed":
-                out = result.get("result", {})
+                # Completed job puts the payload under "data" (fallback "result").
+                out = result.get("data") if result.get("data") is not None else result.get("result", {})
                 await set_cache(cache_key, out, ttl=cache_ttl)
                 return out
             if result.get("status") == "failed":
@@ -72,16 +73,11 @@ async def wire_call(action_id: str, params: dict, cache_ttl: int = 300) -> dict:
         raise TimeoutError(f"Wire job {job_id} did not complete in time")
 
 
-# Anakin Wire's catalog covers shopping/finance/etc. sites — it has NO
-# flight-tracking or weather actions (verified via GET /v1/wire/catalog). So the
-# flight/weather data below uses curated data. Flip this True + set real action_ids
-# once matching Wire actions exist, and the live path activates automatically.
-WIRE_ACTIONS_AVAILABLE = False
-
-
 async def _wire(action_id: str, params: dict, ttl: int, mock):
-    """Use the live Wire action if one exists for this data; otherwise curated data."""
-    if not settings.has_anakin or not WIRE_ACTIONS_AVAILABLE:
+    """Run a real Wire action (id starts with 'act_'); otherwise use curated data.
+    Auxiliary cross-checks (airnav/faa/open-meteo) have no matching Wire action, so
+    they stay curated and don't slow the request."""
+    if not settings.has_anakin or not action_id.startswith("act_"):
         return mock
     try:
         return await wire_call(action_id, params, cache_ttl=ttl)
@@ -90,15 +86,97 @@ async def _wire(action_id: str, params: dict, ttl: int, mock):
         return mock
 
 
-# ── Flight status — LIVE via Anakin Search API (Wire flight engine is down) ───
+def _flight_slug(flight_number: str) -> str:
+    """'AI2509' / 'AI-2509' / '6E 2074' → 'ai2509' (Flightradar24 slug format)."""
+    return "".join(ch for ch in (flight_number or "") if ch.isalnum()).lower()
+
+
 async def fr24_search_flight(flight_number: str, date: str | None = None) -> dict:
+    """LIVE flight status via Anakin Wire (Flightradar24) → parsed to our shape.
+    Falls back to the Search API, then curated data."""
     if settings.has_anakin:
+        # 1 · Wire — Flightradar24 flight detail (real, structured, ~4s)
+        try:
+            raw = await wire_call("act_flightradar24_flight_detail_ssr",
+                                  {"flight_slug": _flight_slug(flight_number)}, cache_ttl=120)
+            parsed = _parse_fr24(raw, flight_number, date)
+            if parsed:
+                return parsed
+        except Exception as e:
+            print(f"[wire] fr24 flight detail failed ({type(e).__name__})")
+        # 2 · Search API fallback (also live)
         from services.scraper import search_flight_status
         live = await search_flight_status(flight_number, date)
         if live:
             return live
-    # Last-resort so the app never 500s if Search returns nothing for an unknown flight.
     return mockdata.mock_flight_search(flight_number)
+
+
+def _parse_fr24(raw: dict, flight_number: str, date: str | None) -> dict:
+    """Map the Wire Flightradar24 flight_detail envelope to our fr24 dict shape."""
+    d = (raw or {}).get("data", {})
+    d = d.get("data", d) if isinstance(d.get("data"), dict) else d  # unwrap envelope
+    hist = d.get("flight_history") or []
+    if not hist:
+        return {}
+    # Pick the requested date if present, else the most recent past/live leg.
+    leg = None
+    if date:
+        want = date  # YYYY-MM-DD
+        for h in hist:
+            iso = (h.get("departure_at") or "")[:10]
+            if iso == want:
+                leg = h
+                break
+    leg = leg or hist[0]
+
+    sched_dep = leg.get("departure_at") or ""
+    actual_dep = leg.get("actual_departure_at") or ""
+    delay = 0
+    if sched_dep and actual_dep:
+        try:
+            from datetime import datetime
+            sd = datetime.fromisoformat(sched_dep.replace("Z", "+00:00"))
+            ad = datetime.fromisoformat(actual_dep.replace("Z", "+00:00"))
+            delay = max(0, int((ad - sd).total_seconds() / 60))
+        except Exception:
+            delay = 0
+
+    status_txt = (leg.get("status") or "").lower()
+    if "cancel" in status_txt:
+        status = "cancelled"
+    elif "land" in status_txt:
+        status = "landed"
+    elif delay >= 15:
+        status = "delayed"
+    else:
+        status = "on_time" if ("scheduled" in status_txt or "estimated" in status_txt or "landed" in status_txt) else "scheduled"
+
+    airline = d.get("airline", {}) or {}
+    return {
+        "flight_number": d.get("flight_number", flight_number),
+        "airline": {"name": airline.get("name", ""), "icao": airline.get("iata_code", "")},
+        "aircraft": {"type": leg.get("aircraft_type", ""), "registration": _reg_from(leg.get("aircraft_type", ""))},
+        "origin": {"iata": leg.get("origin_airport", ""), "name": leg.get("origin_city", "")},
+        "destination": {"iata": leg.get("destination_airport", ""), "name": leg.get("destination_city", "")},
+        "status": status,
+        "delay": delay,
+        "delay_reason": "",  # FR24 doesn't state the reason; passenger provides it
+        "gate": "",
+        "terminal": "",
+        "time": {
+            "scheduled": {"departure": (sched_dep[:19] or ""), "arrival": (leg.get("arrival_at") or "")[:19]},
+            "real": {"departure": (actual_dep[:19] or None), "arrival": None},
+        },
+        "_source": "flightradar24_wire",
+    }
+
+
+def _reg_from(aircraft_type: str) -> str:
+    """Extract tail reg from strings like 'B789(G-ZBKE)' → 'G-ZBKE'."""
+    import re
+    m = re.search(r"\(([^)]+)\)", aircraft_type or "")
+    return m.group(1) if m else ""
 
 
 async def fr24_get_flight_details(flight_id: str) -> dict:
