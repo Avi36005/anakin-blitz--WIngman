@@ -75,9 +75,9 @@ async def analyse_flight(req: FlightAnalyseRequest) -> dict:
         is_cancellation="cancel" in status_raw,
     )
 
-    # 8 · Lie Detector (only for meaningful delays)
+    # 8 · Lie Detector — run on a real delay OR whenever the passenger is disputing a reason
     lie_result = {}
-    if delay_minutes >= 60 and origin_iata:
+    if origin_iata and (delay_minutes >= 45 or bool((req.claimed_reason or "").strip())):
         lie_result = await run_lie_detector(
             flight_number=req.flight_number or "",
             airline_slug=airline_slug,
@@ -138,8 +138,8 @@ async def analyse_flight(req: FlightAnalyseRequest) -> dict:
         "flight_type": _flight_type(origin_iata, dest_iata),
         "duration_minutes": _duration(scheduled_dep, scheduled_arr),
         "distance_km": _distance_km(origin_iata, dest_iata),
-        "ontime_pct": _ontime_pct(tail_history),
-        "dest_weather": _dest_weather(dest_iata),
+        "ontime_pct": fr24.get("ontime_pct") or _ontime_pct(tail_history),
+        "dest_weather": fr24.get("dest_weather") or _dest_weather(dest_iata),
         "compensation": compensation,
         "lie_detector": lie_result,
         "card_benefits": parsed_cards,

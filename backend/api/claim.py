@@ -1,13 +1,11 @@
-import os
 import uuid
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
 
 from models.claim import ClaimGenerateRequest
 from services.groq_llm import llm
 from services.scraper import scrape_indiankanoon_precedents
-from services.pdf_generator import generate_pdf, claim_pdf_path
+from services.pdf_generator import generate_pdf_base64
 from services.rag import query_precedents
 from utils.flight_store import get_flight
 
@@ -24,9 +22,10 @@ AIRLINE_EMAILS = {
 
 @router.post("/claim/generate")
 async def generate_claim(req: ClaimGenerateRequest) -> dict:
-    session = await get_flight(req.flight_id)
+    # Prefer the session sent in the body (stateless); fall back to the in-memory store.
+    session = req.session or (await get_flight(req.flight_id) if req.flight_id else None)
     if not session:
-        raise HTTPException(404, "Flight session not found")
+        raise HTTPException(404, "Flight session not found — pass 'session' in the body.")
 
     precedents = []
     if req.include_precedents:
@@ -76,26 +75,18 @@ threat (DGCA AirSewa + consumer forum). Address it to the airline's grievance of
     ) or mock_letter
 
     claim_id = str(uuid.uuid4())
-    await generate_pdf(claim_id, letter, session, precedents)
+    pdf_base64 = await generate_pdf_base64(letter, session, precedents)
 
     return {
         "claim_id": claim_id,
         "letter_text": letter,
-        "pdf_url": f"/api/claim/pdf/{claim_id}",
+        "pdf_base64": pdf_base64,   # frontend downloads this directly (serverless-safe)
+        "pdf_filename": f"Wingman_Claim_{claim_id[:8]}.pdf",
         "dgca_complaint_url": "https://airsewa.gov.in",
-        "airline_email": AIRLINE_EMAILS.get(session["airline"], ""),
+        "airline_email": AIRLINE_EMAILS.get(session.get("airline", ""), ""),
         "precedents_attached": len(precedents),
         "total_claimed_inr": session.get("total_claimable_inr", amount),
     }
-
-
-@router.get("/claim/pdf/{claim_id}")
-async def download_claim_pdf(claim_id: str):
-    path = claim_pdf_path(claim_id)
-    if not os.path.exists(path):
-        raise HTTPException(404, "Claim PDF not found — generate the claim first.")
-    return FileResponse(path, media_type="application/pdf",
-                        filename=f"Wingman_Claim_{claim_id[:8]}.pdf")
 
 
 def _infer_delay_type(reason: str) -> str:

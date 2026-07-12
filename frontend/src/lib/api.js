@@ -27,12 +27,10 @@ export const api = {
   lieDetector: (flightId) => req(`/api/lie-detector/${flightId}`),
   cardBenefits: (flightId, cardType) =>
     req(`/api/card-benefits/${flightId}${cardType ? `?card_type=${cardType}` : ""}`),
-  groundScript: (flightId) => req(`/api/ground-script/${flightId}`),
+  groundScript: (session) =>
+    req("/api/ground-script", { method: "POST", body: JSON.stringify({ session }) }),
   precedents: (airline, delayType) =>
     req(`/api/precedents?airline=${encodeURIComponent(airline)}&delay_type=${encodeURIComponent(delayType)}`),
-  riskScore: (flight, date) =>
-    req(`/api/risk-score?flight=${encodeURIComponent(flight)}${date ? `&departure_date=${date}` : ""}`),
   generateClaim: (body) =>
     req("/api/claim/generate", { method: "POST", body: JSON.stringify(body) }),
-  claimPdfUrl: (claimId) => `/api/claim/pdf/${claimId}`,
 };

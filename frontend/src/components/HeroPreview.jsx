@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 const SCENARIOS = [
   {
     tone: "red",
-    flight: "6E-6114", route: "BOM → DEL", status: "delayed",
+    flight: "AI2509", route: "DEL → BBI", status: "delayed",
     verdict: "Airline lied", pct: "92%",
     text: "Weather was blamed — but verified METAR shows clear skies at Mumbai. Reclassified as operational.",
     stats: [
@@ -18,7 +18,7 @@ const SCENARIOS = [
   },
   {
     tone: "green",
-    flight: "AI-805", route: "DEL → BOM", status: "delayed",
+    flight: "6E2074", route: "PAT → DEL", status: "delayed",
     verdict: "Compensation eligible", pct: "₹10,000",
     text: "A 6-hour operational delay the airline never disputed — full DGCA compensation plus meals are owed to you.",
     stats: [
@@ -31,7 +31,7 @@ const SCENARIOS = [
   },
   {
     tone: "amber",
-    flight: "SG-157", route: "BOM → DEL", status: "delayed",
+    flight: "UK955", route: "DEL → BOM", status: "delayed",
     verdict: "Reason confirmed", pct: "78%",
     text: "Genuine thunderstorm on record at the time of delay — the weather claim holds, but meals and facilities are still owed.",
     stats: [

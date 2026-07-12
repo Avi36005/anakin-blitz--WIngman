@@ -3,7 +3,7 @@ import Section from "./Section.jsx";
 import { api } from "../lib/api.js";
 import { inr } from "../lib/format.js";
 
-export default function ClaimLetter({ flightId, cardType }) {
+export default function ClaimLetter({ session, cardType }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -20,7 +20,7 @@ export default function ClaimLetter({ flightId, cardType }) {
     setLoading(true);
     try {
       const r = await api.generateClaim({
-        flight_id: flightId,
+        session,
         passenger_name: name,
         passenger_email: email,
         passenger_phone: phone,
@@ -32,6 +32,16 @@ export default function ClaimLetter({ flightId, cardType }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const downloadPdf = () => {
+    const bytes = Uint8Array.from(atob(claim.pdf_base64), (c) => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = claim.pdf_filename || "Wingman_Claim.pdf";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -59,9 +69,7 @@ export default function ClaimLetter({ flightId, cardType }) {
               <div className="caps">total claimed</div>
             </div>
             <div className="hairline flex-1 min-w-8" />
-            <a href={api.claimPdfUrl(claim.claim_id)} target="_blank" rel="noreferrer" className="btn-primary">
-              Download PDF
-            </a>
+            <button onClick={downloadPdf} className="btn-primary">Download PDF</button>
             <a href={`mailto:${claim.airline_email}?subject=Compensation%20Claim&body=${encodeURIComponent(claim.letter_text)}`}
               className="btn-ghost">Email airline</a>
           </div>

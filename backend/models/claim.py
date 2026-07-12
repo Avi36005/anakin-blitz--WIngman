@@ -3,7 +3,8 @@ from typing import Optional
 
 
 class ClaimGenerateRequest(BaseModel):
-    flight_id: str
+    flight_id: Optional[str] = None
+    session: Optional[dict] = None   # full recovery session (stateless / serverless-safe)
     passenger_name: str
     passenger_email: str
     passenger_phone: Optional[str] = None

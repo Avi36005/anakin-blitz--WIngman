@@ -6,12 +6,12 @@ from services.mockdata import DEMO_FLIGHTS
 
 router = APIRouter(tags=["Demo"])
 
+# Real, currently-operating flight numbers (live status via Anakin Search).
 SCENARIOS = {
-    "indigo_weather_lie": {"flight_number": "6E-6114", "card_type": "hdfc_infinia"},
-    "spicejet_weather_lie": {"flight_number": "SG-157", "card_type": "axis_magnus"},
-    "vistara_technical": {"flight_number": "UK-975", "card_type": "hdfc_infinia"},
-    "airindia_eligible": {"flight_number": "AI-805", "card_type": "amex_platinum"},
-    "airindia_on_time": {"flight_number": "AI-131"},
+    "airindia_dispute": {"flight_number": "AI2509", "card_type": "hdfc_infinia",
+                          "claimed_reason": "Delayed due to bad weather at Delhi"},
+    "indigo_live": {"flight_number": "6E2074", "card_type": "axis_atlas"},
+    "vistara_live": {"flight_number": "UK955", "card_type": "hdfc_infinia"},
 }
 
 

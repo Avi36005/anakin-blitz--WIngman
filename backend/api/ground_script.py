@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from services.groq_llm import llm_json
 from services.scraper import get_dgca_passenger_rights
 from utils.flight_store import get_flight
@@ -6,11 +7,15 @@ from utils.flight_store import get_flight
 router = APIRouter(tags=["Ground Script"])
 
 
-@router.get("/ground-script/{flight_id}")
-async def ground_script(flight_id: str) -> dict:
-    session = await get_flight(flight_id)
+class GroundScriptRequest(BaseModel):
+    session: dict
+
+
+@router.post("/ground-script")
+async def ground_script(req: GroundScriptRequest) -> dict:
+    session = req.session
     if not session:
-        raise HTTPException(404, "Flight session not found")
+        raise HTTPException(404, "Provide the flight session in the body.")
 
     dgca_text = await get_dgca_passenger_rights()
     lie = session.get("lie_detector", {}) or {}
@@ -67,4 +72,4 @@ Be assertive, precise, and professional.""",
         mock=mock,
     ) or mock
 
-    return {"flight_id": flight_id, "airline": airline, "delay_minutes": delay, "script": script}
+    return {"flight_id": session.get("flight_id"), "airline": airline, "delay_minutes": delay, "script": script}

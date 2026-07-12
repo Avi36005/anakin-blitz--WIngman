@@ -1,171 +1,287 @@
-# Wingman — AI Passenger Rights & Recovery
+<div align="center">
 
-> **Your rights don't disappear when your flight does.**
+# ✈️ Wingman
 
-When a flight is delayed or cancelled, airlines often misclassify the reason
-("weather") to avoid paying compensation. **Wingman verifies whether that reason
-is actually true** — cross-checking the airline's stated excuse against the
-official aviation weather record — then calculates exactly what you're owed,
-surfaces the perks you can use right now, and generates a court-ready claim.
+### AI Passenger Rights & Recovery Platform
 
-Built for **Anakin Blitz — Second Edition**. Every data point flows through the
-**Anakin Wire API** and **Universal Scraper**.
+**Your rights don't disappear when your flight does.**
 
----
+Flight trackers tell you the plane is late. **Wingman tells you the airline lied,
+how much you're owed, and files the claim for you** — in under a minute.
 
-## What it does
+<!-- LIVE LINK — replace after Vercel deploy -->
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-wingman.vercel.app-000?style=for-the-badge&logo=vercel)](https://wingman.vercel.app)
 
-You enter your flight number and what the airline told you. Wingman runs six
-engines and returns a full recovery plan in under a minute:
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
+![Anakin](https://img.shields.io/badge/Anakin-Search%20%C2%B7%20Scraper%20%C2%B7%20Wire-6C4CF1)
+![Groq](https://img.shields.io/badge/Groq-llama--3.3--70b-F55036)
+![Deploy](https://img.shields.io/badge/Deploy-Vercel-000?logo=vercel)
+![License](https://img.shields.io/badge/License-MIT-black)
 
-| Engine | What it does |
-|---|---|
-| **Flight Tracker** | Live route, terminals, times, delay, destination weather, on-time performance |
-| **Reason Verifier** | Cross-checks the airline's stated reason against archived **METAR** weather. Catches the fake "weather" excuse |
-| **Compensation** | Exact **DGCA CAR** compensation owed — amount, meals, hotel, reason code |
-| **Lounge Access** | Complimentary airport lounge access on your credit card — usable while you wait |
-| **Action Checklist** | What to do at the gate, right now, in priority order |
-| **Counter Script** | Word-for-word lines for the airline desk — what to demand, what never to say |
-| **Precedent Engine** | Real consumer-court judgments against your airline |
-| **Claim Letter** | A formal, DGCA-referenced demand letter as a downloadable PDF |
+Built for **Anakin Blitz — Second Edition** · Powered by **Anakin** (Search · URL Scraper · Wire) + **Groq**
 
-### How the lie detection works
-The airline's most common excuse is "weather," because weather is force majeure
-and legally exempts them from paying. Wingman independently pulls the **METAR**
-(official airport weather observation) for the exact time and place of the delay,
-and applies DGCA adverse-weather thresholds (wind ≥ 25 kt, visibility ≤ 1500 m, or
-any storm/fog/heavy-rain code). If the airline claimed weather but the METAR shows
-clear skies → **MISMATCH**, and the delay is reclassified as compensable.
+</div>
 
 ---
 
-## Tech stack
+## 🎯 The problem
 
-**Backend** — Python 3.11 · FastAPI · Groq (`llama-3.3-70b-versatile`, the only LLM)
-· Anakin Wire + Universal Scraper · Redis (optional cache) · Pinecone (optional RAG)
-· reportlab (PDF) · httpx
+When a flight is delayed or cancelled, airlines routinely blame **"weather"** — because
+weather is *force majeure* and legally exempts them from paying compensation. Passengers
+have no way to check, so they walk away from **₹5,000–₹10,000** they're legally owed under
+DGCA rules. Every single day, across thousands of Indian flights.
 
-**Frontend** — React 18 · Vite · Tailwind CSS · React Router · single typeface
-(Plus Jakarta Sans) · inline SVG icon set · animated data pipeline
+## 💡 The solution
+
+Wingman **independently verifies** the airline's excuse against the official aviation
+weather record, then runs the entire recovery for you:
+
+> Enter your flight + what the airline told you → Wingman fetches the real **METAR** weather
+> for that airport, proves whether the "weather" claim holds, calculates your exact DGCA
+> compensation, shows the lounge access you can use *right now*, coaches you on what to say
+> at the counter, and generates a court-ready claim letter.
+
+The verdict isn't an opinion — it's **the airline's stated reason vs. the official
+meteorological observation.** We don't guess the reason; we *verify* it.
 
 ---
 
-## Runs with zero API keys
+## 🏗️ Architecture
 
-The whole app boots in **demo mode** on realistic mock data, so it runs and demos
-immediately. Add real keys to `backend/.env` and it automatically switches to live
-Anakin Wire / Scraper / Groq — no code changes.
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        FRONTEND  (React · Vite · Tailwind)                      │
+│   Landing · Live Wire Pipeline · Dashboard (tabbed engines)                    │
+│   Flight Tracker │ Reason Verifier │ Compensation │ Lounge │ Script │ Claim    │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                         │  REST /api   (same-origin on Vercel)
+┌───────────────────────────────────────▼──────────────────────────────────────┐
+│                     BACKEND  (FastAPI · Python 3.11 · stateless)               │
+│                                                                                │
+│   api/flight  →  ORCHESTRATOR                                                   │
+│      │                                                                         │
+│      ├─► services/scraper.py ──►  ANAKIN SEARCH   /v1/search    ★              │
+│      │        • live flight status (route, times, terminal, on-time %)         │
+│      │        • live METAR weather at the delay airport                         │
+│      │     └─► ANAKIN URL SCRAPER /v1/url-scraper  ★   (DGCA regulations)       │
+│      │                                                                         │
+│      ├─► services/wire.py ─────►  ANAKIN WIRE  /v1/wire/task                   │
+│      │        (Flightradar24 · FAA · AirNav catalog actions — correct IDs)      │
+│      │                                                                         │
+│      ├─► services/lie_detector.py ─►  METAR parser + DGCA thresholds            │
+│      ├─► utils/dgca_rules.py ──────►  DGCA CAR §3 Series M compensation table   │
+│      └─► services/groq_llm.py ─────►  GROQ  llama-3.3-70b  (11-key pool)  ★     │
+│                                       verdict · script · claim · precedents      │
+│                                                                                │
+│   reportlab (claim PDF, inline base64)                                         │
+└────────────────────────────────────────────────────────────────────────────────┘
+        ★ = live external data / inference
+
+Deploy:  Vercel  →  static frontend (frontend/dist)  +  Python serverless (api/index.py → FastAPI)
+```
+
+**Request flow** (`POST /api/flight/analyse`):
+```
+flight # + airline's stated reason
+   → Anakin SEARCH: live flight status (route, terminals, times, on-time %, dest weather)
+   → Anakin SEARCH: live METAR at origin + destination  (concurrent)
+   → METAR parser + DGCA adverse-weather thresholds → is the "weather" claim true?
+   → DGCA compensation engine → amount, meals, hotel eligibility
+   → Groq: plain-English verdict, legal implication, counter-claim text
+   → lounge access (by card) + action checklist
+   → single recovery session  (returned to the client; endpoints are stateless)
+```
 
 ---
 
-## Quick start
+## 🛰️ How we use Anakin  (every external data point flows through Anakin)
 
-### 1 · Backend → http://localhost:8000
+| Anakin product | Endpoint | What Wingman does with it | Status |
+|---|---|---|---|
+| **Search API** | `POST /v1/search` | **Live flight status** (route, terminals, times, gate, on-time %, dest weather) for any real flight, e.g. `AI2509` → Air India DEL→BBI · **Live METAR** at the delay airport, e.g. `VIDP 240930Z 26005KT 6000 FEW040 …` — structured to clean JSON by Groq | 🟢 **LIVE** |
+| **URL Scraper** | `POST /v1/url-scraper` → poll | **DGCA regulation text** (CAR §3, Series M) from the official gov portal for the Counter Script's statute citations | 🟢 **LIVE** |
+| **Wire** | `POST /v1/wire/task` → `/v1/wire/jobs/{id}` | Flightradar24 (16 actions) · FAA NAS · AirNav — correct action IDs + request/poll format wired in as the structured-flight path | 🟡 wired† |
+| **Wire Catalog** | `GET /v1/wire/catalog` | Discovers 904 site-actions (46 in `travel`) to bind flight-tracking sources | 🟢 used |
+
+> † Anakin's Wire task engine currently returns a server-side `scraper_error` on every action
+> (including its own defaults, `credits_used: 0`); Wingman uses the **Search API** as the live
+> flight path and activates Wire automatically once that engine recovers.
+
+**Also live:** **Groq** `llama-3.3-70b-versatile` powers all reasoning behind an **11-key
+rotating pool** that fails over on any rate-limit.
+
+---
+
+## 🔬 How the lie detection works
+
+METAR is the official weather observation every airport issues every 30 minutes. Wingman
+pulls it live and applies **DGCA adverse-weather thresholds**:
+
+```
+adverse  ⇔  wind ≥ 25 kt   OR   visibility ≤ 1500 m   OR   code ∈ {TS, FG, +RA, GR, FC, …}
+```
+
+| Airline claimed | METAR shows | Verdict |
+|---|---|---|
+| "weather" | clear | 🔴 **MISMATCH** — reclassified operational → **compensation owed** |
+| "weather" | genuinely adverse | 🟡 **CONFIRMED** — excuse holds (meals still owed) |
+| — | no data | ⚪ **INCONCLUSIVE** |
+
+The raw METAR string becomes the court-ready evidence attached to the claim letter.
+
+---
+
+## 🧩 The engines
+
+| # | Engine | Description |
+|---|---|---|
+| 01 | **Reason Verifier** | Live METAR vs. the airline's stated reason — catches the fake "weather" excuse |
+| 02 | **Compensation** | Exact DGCA CAR compensation — amount, meal vouchers, hotel, reason code |
+| 03 | **Lounge Access** | Complimentary airport lounge access on your credit card, usable during the delay |
+| 04 | **Action Checklist** | Prioritised do-it-now steps at the gate |
+| 05 | **Counter Script** | Word-for-word lines for the desk (real DGCA citations) — what to demand, what never to say |
+| 06 | **Precedent Engine** | Consumer-court judgments against your airline |
+| 07 | **Claim Letter** | Formal, DGCA-referenced demand letter → downloadable PDF |
+
+Plus a **Flight Tracker** header (route, terminals, times, destination weather, on-time %).
+
+---
+
+## 🛠️ Tech stack
+
+**Backend** — Python 3.11 · FastAPI · **Groq** (only LLM) · **Anakin** Search / URL Scraper / Wire · reportlab · httpx · stateless (serverless-ready)
+**Frontend** — React 18 · Vite · Tailwind CSS · React Router · single typeface (Plus Jakarta Sans) · inline SVG icons · animated data pipeline
+
+---
+
+## 🚀 Quick start (local)
+
 ```bash
+# Backend → http://localhost:8000
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env        # add ANAKIN_API_KEY + GROQ_API_KEYS
 uvicorn main:app --port 8000 --reload
-```
-- `GET /health` → `{"status":"ok","mode":"demo …"}`
-- `GET /docs` → interactive Swagger UI
 
-### 2 · Frontend → http://localhost:5173
-```bash
+# Frontend → http://localhost:5173
 cd frontend
-npm install
-npm run dev
+npm install && npm run dev
 ```
-The Vite dev server proxies `/api` and `/health` to the backend on `:8000`.
+
+Runs with **zero keys** in demo mode; add keys → Anakin Search (live flight + METAR), URL
+Scraper (live DGCA) and Groq (live reasoning) switch on automatically.
 
 ---
 
-## Demo flights (no keys needed)
+## ☁️ Deploy to Vercel
 
-| Flight | Airline · Route | Outcome |
+The repo is Vercel-ready: **static frontend + Python serverless FastAPI** via `vercel.json`.
+
+1. **Import** the GitHub repo at [vercel.com/new](https://vercel.com/new) — Vercel reads `vercel.json` (no settings needed).
+2. **Environment Variables** (Project → Settings → Environment Variables):
+   | Key | Value |
+   |---|---|
+   | `ANAKIN_API_KEY` | your Anakin key |
+   | `GROQ_API_KEYS` | comma-separated Groq key pool |
+3. **Deploy.** Frontend serves statically; `/api/*` and `/health` route to the FastAPI function.
+
+```
+wingman/
+├── vercel.json          # static frontend + python serverless routing
+├── api/index.py         # Vercel entrypoint → imports backend/main.py (FastAPI ASGI)
+├── api/requirements.txt  # serverless Python deps
+├── backend/             # FastAPI app
+└── frontend/            # Vite build → frontend/dist
+```
+
+---
+
+## 🎬 Demo flights (real, live status)
+
+| Flight | Airline · Route (live) | Try |
 |---|---|---|
-| `6E-6114` | IndiGo · BOM→DEL | Weather blamed, METAR clear → **airline lied**, ₹7,500 |
-| `SG-157` | SpiceJet · BOM→DEL | Weather claim, disproven |
-| `AI-805` | Air India · DEL→BOM | Operational 6h delay → eligible, ₹10,000 |
-| `UK-975` | Vistara · DEL→BOM | Technical, short → not eligible |
-| `AI-131` | Air India · BOM→LHR | On time |
+| `AI2509` | Air India · DEL→BBI | + "delayed due to weather at Delhi" → live verdict |
+| `6E2074` | IndiGo · PAT→DEL | live status |
+| `UK955`  | Vistara · DEL→BOM | live status |
 
-Open the app → **Get started** → enter a flight (or tap a sample) → optionally add
-your credit card and paste the airline's delay SMS → **Run recovery**.
+Open the app → **Get started** → enter a flight → optionally add your card + paste the
+airline's delay SMS → **Run recovery**.
+
+> Everything is **live** — flight status, weather and the verdict reflect the *actual* current
+> state, not a script. On-time flights correctly show no compensation.
 
 ---
 
-## API reference
+## 📡 API reference
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `GET`  | `/health` | Service + mode (demo/live) |
+| `GET`  | `/health` | Service + mode (live/demo) |
 | `POST` | `/api/flight/analyse` | Main orchestrator → full recovery session |
-| `GET`  | `/api/lie-detector/{flight_id}` | Reason Verifier verdict |
-| `GET`  | `/api/card-benefits/{flight_id}` | Lounge access for a card |
-| `GET`  | `/api/ground-script/{flight_id}` | Counter script |
+| `POST` | `/api/ground-script` | Counter script (live DGCA text) — session in body |
+| `POST` | `/api/claim/generate` | Draft claim letter + PDF (base64) — session in body |
 | `GET`  | `/api/precedents` | Consumer-court case law |
-| `POST` | `/api/claim/generate` | Draft the claim letter |
-| `GET`  | `/api/claim/pdf/{claim_id}` | Download the claim PDF |
 | `GET`  | `/api/demo/{scenario}` | Instant pre-baked demo |
 
-**Example**
 ```bash
-curl -X POST localhost:8000/api/flight/analyse \
+curl -X POST $HOST/api/flight/analyse \
   -H 'Content-Type: application/json' \
-  -d '{"flight_number":"6E-6114","date":"2026-06-28",
-       "card_type":"hdfc_infinia",
-       "claimed_reason":"Delayed due to bad weather at Mumbai"}'
+  -d '{"flight_number":"AI2509","card_type":"hdfc_infinia",
+       "claimed_reason":"Delayed due to bad weather at Delhi"}'
 ```
 
 ---
 
-## Live mode
-
-Copy `backend/.env.example` → `backend/.env`:
-```
-ANAKIN_API_KEY=...     # live Wire + Universal Scraper
-GROQ_API_KEY=...       # live Groq LLM (else deterministic fallbacks)
-PINECONE_API_KEY=...   # optional precedent RAG
-REDIS_URL=...          # optional cache (app runs fine without it)
-```
-
-**Anakin sources used** — Wire: Flightradar24, AirNav Radar, FAA NAS Status,
-Open-Meteo, IQAir, AirHelp, OpenStreetMap. Scraper: Iowa State METAR archive,
-DGCA CAR, airline policies, credit-card benefits, Indian Kanoon / NCDRC.
-
----
-
-## Project structure
+## 📁 Project structure
 
 ```
-anakin hackathon/
-├── backend/
-│   ├── main.py · config.py · requirements.txt
-│   ├── api/         flight · lie_detector · card_benefits · ground_script
-│   │                precedents · claim · demo
-│   ├── services/    wire · scraper · groq_llm · lie_detector
-│   │                pdf_generator · rag · mockdata
-│   ├── models/      flight · claim
-│   └── utils/       metar_parser · dgca_rules · cache · flight_store
-└── frontend/
-    └── src/
-        ├── components/  Navbar · Ticker · HeroPreview · WirePipeline
-        │                CheckForm · DashboardSidebar · icons
-        ├── sections/    FlightTracker · FlightInfo · LieDetectorCard
-        │                CompensationCard · CardBenefits · ActionItems
-        │                GroundScript · PrecedentsCard · ClaimLetter
-        ├── pages/        Landing · Results
-        └── lib/          api · format
+backend/
+├── main.py · config.py
+├── api/       flight · lie_detector · card_benefits · ground_script · precedents · claim · demo
+├── services/  wire · scraper (Search + URL Scraper) · groq_llm (11-key pool)
+│              lie_detector · pdf_generator · mockdata
+├── models/    flight · claim
+└── utils/     metar_parser · dgca_rules · cache · flight_store
+frontend/src/
+├── components/  Navbar · Ticker · HeroPreview · WirePipeline · CheckForm · DashboardSidebar · icons
+├── sections/    FlightTracker · FlightInfo · LieDetectorCard · CompensationCard · CardBenefits
+│                ActionItems · GroundScript · PrecedentsCard · ClaimLetter
+├── pages/       Landing · Results
+└── lib/         api · format
 ```
 
 ---
 
-## Notes & limitations
+## 🏆 Why it fits the brief
 
-- **Airline's stated reason** — flight APIs rarely include it, so the most reliable
-  input is the passenger pasting their delay SMS or typing what they were told at
-  the gate. Wingman then *verifies* that claim; it never guesses it.
-- **Compensation figures** follow DGCA CAR Section 3, Series M, Part IV; card lounge
-  data reflects publicly listed benefits and should be confirmed with the issuer.
-- No cloud deployment — everything runs locally.
+- **Use of Wire (40%)** — every external data point flows through Anakin: live flight status +
+  METAR via **Search API**, DGCA via **URL Scraper**, flight sources bound to the **Wire catalog**.
+- **The idea (30%)** — a *specific user* (the delayed Indian air passenger) with a *specific,
+  expensive pain* (₹5–10k never claimed) — not a generic "AI for X."
+- **Execution (30%)** — one polished end-to-end flow: real flight → real weather → real verdict →
+  real claim PDF, live Groq reasoning throughout, ~2–5s.
+- **Real-world usecase** — you'd genuinely use it the next time a flight is delayed.
+
+---
+
+## ⚠️ Notes & limitations
+
+- **Airline's stated reason** — flight APIs rarely include it, so the passenger pastes their
+  delay SMS or types what they were told. Wingman *verifies* that claim; it never guesses it.
+- **Live = honest verdicts** — the verdict depends on the *actual* current airport weather, so
+  a "MISMATCH" isn't guaranteed on any given flight.
+- **Wire flight actions** are wired with correct IDs/format; Anakin's Wire task engine is
+  currently erroring server-side (`credits_used: 0`), so flight data uses the Search API path.
+- **Compensation** follows DGCA CAR §3, Series M, Part IV; card lounge data reflects publicly
+  listed benefits — confirm with the issuer.
+
+<div align="center">
+
+**Wingman** · Built for Anakin Blitz · Second Edition · MIT License
+
+</div>

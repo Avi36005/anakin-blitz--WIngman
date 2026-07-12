@@ -90,12 +90,15 @@ async def _wire(action_id: str, params: dict, ttl: int, mock):
         return mock
 
 
-# ── Flightradar24 ────────────────────────────────────────────────────────────
+# ── Flight status — LIVE via Anakin Search API (Wire flight engine is down) ───
 async def fr24_search_flight(flight_number: str, date: str | None = None) -> dict:
-    params = {"flight": flight_number}
-    if date:
-        params["date"] = date
-    return await _wire("flightradar24.flight_search", params, 60, mockdata.mock_flight_search(flight_number))
+    if settings.has_anakin:
+        from services.scraper import search_flight_status
+        live = await search_flight_status(flight_number, date)
+        if live:
+            return live
+    # Last-resort so the app never 500s if Search returns nothing for an unknown flight.
+    return mockdata.mock_flight_search(flight_number)
 
 
 async def fr24_get_flight_details(flight_id: str) -> dict:

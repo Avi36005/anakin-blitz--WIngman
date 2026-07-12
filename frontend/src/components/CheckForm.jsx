@@ -2,10 +2,9 @@ import { useState } from "react";
 import { CARD_OPTIONS } from "../lib/format.js";
 
 const QUICK = [
-  { fn: "6E-6114", label: "6E-6114 · weather lie" },
-  { fn: "AI-805", label: "AI-805 · eligible" },
-  { fn: "UK-975", label: "UK-975 · technical" },
-  { fn: "AI-131", label: "AI-131 · on time" },
+  { fn: "AI2509", reason: "Delayed due to bad weather at Delhi", label: "AI2509 · dispute weather" },
+  { fn: "6E2074", label: "6E2074 · live status" },
+  { fn: "UK955", label: "UK955 · live status" },
 ];
 
 export default function CheckForm({ onSubmit, loading, error }) {
@@ -24,14 +23,14 @@ export default function CheckForm({ onSubmit, loading, error }) {
     return t.toLowerCase().replace(/\s+/g, "_"); // best-effort slug for a typed card
   };
 
-  const submit = (fn) => {
+  const submit = (fn, reasonOverride) => {
     const value = (fn || flight).trim();
     if (!value) return;
     onSubmit({
       flight_number: value,
       date: "2026-06-28",
       card_type: resolveCardSlug(card),
-      claimed_reason: reason.trim() || null,
+      claimed_reason: (reasonOverride ?? reason).trim() || null,
     });
   };
 
@@ -52,7 +51,7 @@ export default function CheckForm({ onSubmit, loading, error }) {
           value={flight}
           onChange={(e) => setFlight(e.target.value.toUpperCase())}
           onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder="e.g. 6E-6114"
+          placeholder="e.g. AI2509, 6E2074, UK955"
           className="w-full rounded-xl border border-line-strong bg-surface px-4 py-3.5 text-[15px] text-ink placeholder:text-fog/60 outline-none transition-colors focus:border-navy"
         />
 
@@ -105,7 +104,8 @@ export default function CheckForm({ onSubmit, loading, error }) {
               key={q.fn}
               onClick={() => {
                 setFlight(q.fn);
-                submit(q.fn);
+                if (q.reason) setReason(q.reason);
+                submit(q.fn, q.reason);
               }}
               disabled={loading}
               className="rounded-full border border-line-strong bg-surface px-4 py-2 text-[13px] text-ink-soft transition-colors hover:border-navy hover:text-ink"

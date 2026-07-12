@@ -106,9 +106,9 @@ export default function Results() {
     comp: <CompensationCard comp={s.compensation} />,
     cards: <CardBenefits benefits={s.card_benefits} cardType={s.card_type} />,
     actions: <ActionItems items={s.action_items} />,
-    script: <GroundScript flightId={s.flight_id} />,
+    script: <GroundScript session={s} />,
     precedents: <PrecedentsCard airline={s.airline_display} delayType={lieHit ? "weather" : "operational"} />,
-    claim: <ClaimLetter flightId={s.flight_id} cardType={s.card_type} />,
+    claim: <ClaimLetter session={s} cardType={s.card_type} />,
   };
 
   return (

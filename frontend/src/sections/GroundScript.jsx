@@ -12,7 +12,7 @@ function Line({ label, text }) {
   );
 }
 
-export default function GroundScript({ flightId }) {
+export default function GroundScript({ session }) {
   const [s, setS] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -21,7 +21,7 @@ export default function GroundScript({ flightId }) {
     setLoading(true);
     setErr("");
     try {
-      const r = await api.groundScript(flightId);
+      const r = await api.groundScript(session);
       setS(r.script);
     } catch (e) {
       setErr(e.message);

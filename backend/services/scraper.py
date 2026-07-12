@@ -91,6 +91,54 @@ async def anakin_search(prompt: str, cache_ttl: int = 600) -> list:
         return []
 
 
+async def search_flight_status(flight_number: str, date: str | None = None) -> dict:
+    """LIVE flight status via the Anakin Search API + Groq structuring.
+    Returns the Flightradar24-shaped dict analyse expects, or {} if not found."""
+    if not settings.has_anakin:
+        return {}
+    fn = flight_number.replace("-", " ").strip()
+    results = await anakin_search(
+        f"{fn} flight status today live departure arrival delay airport terminal gate on-time",
+        cache_ttl=120,
+    )
+    if not results:
+        return {}
+
+    from services.groq_llm import llm_json
+    block = "\n".join(
+        f"[{r.get('title','')}] {(r.get('snippet','') or '')[:450]} ({r.get('url','')})"
+        for r in results[:5]
+    )
+    data = await llm_json(
+        prompt=f"""Extract structured live flight data for flight {flight_number} from these
+real search-result snippets. Use IST times as ISO 'YYYY-MM-DDTHH:MM:00' (assume {date or 'today'}).
+Return ONLY this JSON (no prose):
+{{
+ "flight_number": "{flight_number}",
+ "airline": {{"name": string, "icao": string}},
+ "aircraft": {{"type": string, "registration": ""}},
+ "origin": {{"iata": "3-letter code", "name": string}},
+ "destination": {{"iata": "3-letter code", "name": string}},
+ "status": "on_time" | "delayed" | "cancelled" | "landed" | "scheduled",
+ "delay": integer minutes (0 if on time),
+ "delay_reason": string (the reason if stated, else ""),
+ "gate": string, "terminal": string,
+ "time": {{"scheduled": {{"departure": ISO, "arrival": ISO}},
+           "real": {{"departure": null, "arrival": null}}}},
+ "ontime_pct": integer (0-100),
+ "dest_weather": {{"temp_c": integer, "condition": "Clear|Clouds|Rain|Mist|Snow|Thunderstorm",
+                   "description": string, "aqi": integer, "is_night": false}}
+}}
+
+Snippets:
+{block}""",
+        mock={},
+    )
+    if isinstance(data, dict) and data.get("origin", {}).get("iata"):
+        return data
+    return {}
+
+
 def _extract_metar(text: str, icao: str) -> str:
     """Pull a raw METAR line (e.g. 'VABB 281400Z 22012KT …') out of any text."""
     if not text:

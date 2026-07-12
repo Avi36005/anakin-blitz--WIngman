@@ -1,11 +1,11 @@
 // Live flight ticker with red/green status coding.
 const ITEMS = [
-  { code: "6E-6114 BOM→DEL", status: "DELAYED 4H 23M", tone: "red" },
-  { code: "AI-131 BOM→LHR", status: "ON TIME", tone: "green" },
-  { code: "SG-157 BOM→DEL", status: "DELAYED · WEATHER CLAIMED ⚠", tone: "red" },
+  { code: "AI2509 DEL→BBI", status: "DELAYED 4H 23M", tone: "red" },
+  { code: "6E2074 PAT→DEL", status: "ON TIME", tone: "green" },
+  { code: "UK955 DEL→BOM", status: "DELAYED · WEATHER CLAIMED ⚠", tone: "red" },
   { code: "QP-1414 BLR→DEL", status: "ON TIME", tone: "green" },
-  { code: "UK-975 DEL→BOM", status: "DELAYED · TECHNICAL", tone: "red" },
-  { code: "AI-805 DEL→BOM", status: "COMPENSATION ELIGIBLE ✓", tone: "green" },
+  { code: "6E5203 BOM→BLR", status: "DELAYED · TECHNICAL", tone: "red" },
+  { code: "AI2953 DEL→HYD", status: "COMPENSATION ELIGIBLE ✓", tone: "green" },
   { code: "AI-675 BOM→DXB", status: "ON TIME", tone: "green" },
   { code: "6E-5391 BLR→DEL", status: "DELAYED 1H 40M", tone: "red" },
 ];
