@@ -69,120 +69,115 @@ async def wire_call(action_id: str, params: dict, cache_ttl: int = 300) -> dict:
         raise TimeoutError(f"Wire job {job_id} did not complete in time")
 
 
+# Anakin Wire's catalog covers shopping/finance/etc. sites — it has NO
+# flight-tracking or weather actions (verified via GET /v1/wire/catalog). So the
+# flight/weather data below uses curated data. Flip this True + set real action_ids
+# once matching Wire actions exist, and the live path activates automatically.
+WIRE_ACTIONS_AVAILABLE = False
+
+
+async def _wire(action_id: str, params: dict, ttl: int, mock):
+    """Use the live Wire action if one exists for this data; otherwise curated data."""
+    if not settings.has_anakin or not WIRE_ACTIONS_AVAILABLE:
+        return mock
+    try:
+        return await wire_call(action_id, params, cache_ttl=ttl)
+    except Exception as e:
+        print(f"[wire] {action_id} live call failed ({type(e).__name__}); using mock")
+        return mock
+
+
 # ── Flightradar24 ────────────────────────────────────────────────────────────
 async def fr24_search_flight(flight_number: str, date: str | None = None) -> dict:
-    if not settings.has_anakin:
-        return mockdata.mock_flight_search(flight_number)
     params = {"flight": flight_number}
     if date:
         params["date"] = date
-    return await wire_call("flightradar24.flight_search", params, cache_ttl=60)
+    return await _wire("flightradar24.flight_search", params, 60, mockdata.mock_flight_search(flight_number))
 
 
 async def fr24_get_flight_details(flight_id: str) -> dict:
-    if not settings.has_anakin:
-        return {}
-    return await wire_call("flightradar24.flight_details", {"id": flight_id}, cache_ttl=60)
+    return await _wire("flightradar24.flight_details", {"id": flight_id}, 60, {})
 
 
 async def fr24_get_aircraft_details(registration: str) -> dict:
-    if not settings.has_anakin:
-        return mockdata.mock_aircraft_details(registration)
-    return await wire_call("flightradar24.aircraft_details", {"registration": registration}, cache_ttl=60)
+    return await _wire("flightradar24.aircraft_details", {"registration": registration}, 60,
+                       mockdata.mock_aircraft_details(registration))
 
 
 async def fr24_get_airport_departures(airport_iata: str) -> dict:
-    if not settings.has_anakin:
-        return {"airport": airport_iata, "departures": [], "delayed_pct": 22}
-    return await wire_call("flightradar24.airport_departures", {"airport": airport_iata}, cache_ttl=120)
+    return await _wire("flightradar24.airport_departures", {"airport": airport_iata}, 120,
+                       {"airport": airport_iata, "departures": [], "delayed_pct": 22})
 
 
 async def fr24_get_airport_arrivals(airport_iata: str) -> dict:
-    if not settings.has_anakin:
-        return {"airport": airport_iata, "arrivals": []}
-    return await wire_call("flightradar24.airport_arrivals", {"airport": airport_iata}, cache_ttl=120)
+    return await _wire("flightradar24.airport_arrivals", {"airport": airport_iata}, 120,
+                       {"airport": airport_iata, "arrivals": []})
 
 
 async def fr24_get_airline_fleet(airline_icao: str) -> dict:
-    if not settings.has_anakin:
-        return {"airline": airline_icao, "fleet": []}
-    return await wire_call("flightradar24.airline_details", {"airline": airline_icao}, cache_ttl=3600)
+    return await _wire("flightradar24.airline_details", {"airline": airline_icao}, 3600,
+                       {"airline": airline_icao, "fleet": []})
 
 
 # ── AirNav Radar ─────────────────────────────────────────────────────────────
 async def airnav_get_flight_status(flight_number: str) -> dict:
-    if not settings.has_anakin:
-        return {"flight": flight_number, "source": "airnav", "cross_validated": True}
-    return await wire_call("airnavradar.flight_details", {"flight": flight_number}, cache_ttl=60)
+    return await _wire("airnavradar.flight_details", {"flight": flight_number}, 60,
+                       {"flight": flight_number, "source": "airnav", "cross_validated": True})
 
 
 async def airnav_get_aircraft_history(registration: str) -> dict:
-    if not settings.has_anakin:
-        return mockdata.mock_aircraft_history(registration)
-    return await wire_call("airnavradar.aircraft_details", {"registration": registration}, cache_ttl=600)
+    return await _wire("airnavradar.aircraft_details", {"registration": registration}, 600,
+                       mockdata.mock_aircraft_history(registration))
 
 
 async def airnav_get_airport_details(airport_iata: str) -> dict:
-    if not settings.has_anakin:
-        return {"id": airport_iata, "status": "operational"}
-    return await wire_call("airnav.airport_details", {"id": airport_iata}, cache_ttl=300)
+    return await _wire("airnav.airport_details", {"id": airport_iata}, 300,
+                       {"id": airport_iata, "status": "operational"})
 
 
 # ── FAA NAS Status ───────────────────────────────────────────────────────────
 async def faa_get_active_advisories() -> dict:
-    if not settings.has_anakin:
-        return mockdata.mock_faa_advisories()
-    return await wire_call("nasstatus.advisories", {}, cache_ttl=120)
+    return await _wire("nasstatus.advisories", {}, 120, mockdata.mock_faa_advisories())
 
 
 async def faa_get_airport_delay(airport_iata: str) -> dict:
-    if not settings.has_anakin:
-        return {"airport": airport_iata, "ground_delay_program": False}
-    return await wire_call("nasstatus.airport_status", {"airport": airport_iata}, cache_ttl=120)
+    return await _wire("nasstatus.airport_status", {"airport": airport_iata}, 120,
+                       {"airport": airport_iata, "ground_delay_program": False})
 
 
 # ── Open-Meteo ───────────────────────────────────────────────────────────────
 async def openmeteo_get_hourly_forecast(lat: float, lng: float, date: str | None = None) -> dict:
-    if not settings.has_anakin:
-        return mockdata.mock_openmeteo(lat, lng, date)
-    params = {
-        "latitude": lat, "longitude": lng,
-        "hourly": "wind_speed_10m,visibility,precipitation,weather_code,cloud_cover",
-    }
+    params = {"latitude": lat, "longitude": lng,
+              "hourly": "wind_speed_10m,visibility,precipitation,weather_code,cloud_cover"}
     if date:
         params["start_date"] = date
         params["end_date"] = date
-    return await wire_call("open-meteo.forecast", params, cache_ttl=1800)
+    return await _wire("open-meteo.forecast", params, 1800, mockdata.mock_openmeteo(lat, lng, date))
 
 
 async def openmeteo_get_wind_and_visibility(lat: float, lng: float) -> dict:
-    if not settings.has_anakin:
-        return mockdata.mock_openmeteo(lat, lng)
-    return await wire_call("open-meteo.forecast", {
-        "latitude": lat, "longitude": lng,
-        "current": "wind_speed_10m,visibility,precipitation,weather_code",
-    }, cache_ttl=300)
+    return await _wire("open-meteo.forecast",
+                       {"latitude": lat, "longitude": lng,
+                        "current": "wind_speed_10m,visibility,precipitation,weather_code"},
+                       300, mockdata.mock_openmeteo(lat, lng))
 
 
 # ── IQAir ────────────────────────────────────────────────────────────────────
 async def iqair_get_city_weather(city: str) -> dict:
-    if not settings.has_anakin:
-        return mockdata.mock_iqair(city)
-    return await wire_call("iqair.city_details", {"city": city}, cache_ttl=600)
+    return await _wire("iqair.city_details", {"city": city}, 600, mockdata.mock_iqair(city))
 
 
 # ── AirHelp (EU261) ──────────────────────────────────────────────────────────
 async def airhelp_check_flight_eligibility(flight_number: str, date: str) -> dict:
-    if not settings.has_anakin:
-        return {"flight": flight_number, "eu261_eligible": False, "note": "Domestic route — EU261 not applicable."}
-    return await wire_call("airhelp.flight_status", {"flight": flight_number, "date": date}, cache_ttl=300)
+    return await _wire("airhelp.flight_status", {"flight": flight_number, "date": date}, 300,
+                       {"flight": flight_number, "eu261_eligible": False,
+                        "note": "Domestic route — EU261 not applicable."})
 
 
 # ── OpenStreetMap ────────────────────────────────────────────────────────────
 async def osm_get_airport_details(airport_name: str) -> dict:
-    if not settings.has_anakin:
-        return {"query": airport_name}
-    return await wire_call("openstreetmap.feature_details", {"query": f"{airport_name} airport"}, cache_ttl=86400)
+    return await _wire("openstreetmap.feature_details", {"query": f"{airport_name} airport"}, 86400,
+                       {"query": airport_name})
 
 
 # ── Reference tables (fast fallback for coordinates) ─────────────────────────

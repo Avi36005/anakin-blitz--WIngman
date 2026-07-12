@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     # All optional so the app boots with NO keys (mock mode).
     anakin_api_key: Optional[str] = None
     groq_api_key: Optional[str] = None
+    groq_api_keys: Optional[str] = None  # comma/space/newline separated pool
     redis_url: str = "redis://localhost:6379"
     pinecone_api_key: Optional[str] = None
     pinecone_index: str = "wingman-precedents"
@@ -27,8 +28,21 @@ class Settings(BaseSettings):
         return bool(self.anakin_api_key)
 
     @property
+    def groq_keys(self) -> list[str]:
+        """Full pool of Groq keys (from GROQ_API_KEYS + GROQ_API_KEY), de-duped."""
+        import re
+        raw = " ".join(filter(None, [self.groq_api_keys, self.groq_api_key]))
+        keys = [k for k in re.split(r"[\s,]+", raw) if k.startswith("gsk_")]
+        seen, out = set(), []
+        for k in keys:
+            if k not in seen:
+                seen.add(k)
+                out.append(k)
+        return out
+
+    @property
     def has_groq(self) -> bool:
-        return bool(self.groq_api_key)
+        return bool(self.groq_keys)
 
 
 @lru_cache()
