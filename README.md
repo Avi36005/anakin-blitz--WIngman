@@ -100,12 +100,12 @@ flight # + airline's stated reason
 
 ## 🛰️ How we use Anakin  (every external data point flows through Anakin)
 
-| Anakin product | Endpoint | What Wingman does with it | Status |
-|---|---|---|---|
-| **Search API** | `POST /v1/search` | **Live flight status** (route, terminals, times, gate, on-time %, dest weather) for any real flight, e.g. `AI2509` → Air India DEL→BBI · **Live METAR** at the delay airport, e.g. `VIDP 240930Z 26005KT 6000 FEW040 …` — structured to clean JSON by Groq | 🟢 **LIVE** |
-| **URL Scraper** | `POST /v1/url-scraper` → poll | **DGCA regulation text** (CAR §3, Series M) from the official gov portal for the Counter Script's statute citations | 🟢 **LIVE** |
-| **Wire** | `POST /v1/wire/task` → `/v1/wire/jobs/{id}` | Flightradar24 (16 actions) · FAA NAS · AirNav — correct action IDs + request/poll format wired in as the structured-flight path | 🟡 wired† |
-| **Wire Catalog** | `GET /v1/wire/catalog` | Discovers 904 site-actions (46 in `travel`) to bind flight-tracking sources | 🟢 used |
+| Anakin product | Endpoint | What Wingman does with it |
+|---|---|---|
+| **Search API** | `POST /v1/search` | **Live flight status** (route, terminals, times, gate, on-time %, dest weather) for any real flight, e.g. `AI2509` → Air India DEL→BBI · **Live METAR** at the delay airport, e.g. `VIDP 240930Z 26005KT 6000 FEW040 …` — structured to clean JSON by Groq |
+| **URL Scraper** | `POST /v1/url-scraper` → poll | **DGCA regulation text** (CAR §3, Series M) from the official gov portal for the Counter Script's statute citations |
+| **Wire** | `POST /v1/wire/task` → `/v1/wire/jobs/{id}` | Flightradar24 (16 actions) · FAA NAS · AirNav — correct action IDs + request/poll format wired in as the structured-flight path |
+| **Wire Catalog** | `GET /v1/wire/catalog` | Discovers 904 site-actions (46 in `travel`) to bind flight-tracking sources |
 
 > † Anakin's Wire task engine currently returns a server-side `scraper_error` on every action
 > (including its own defaults, `credits_used: 0`); Wingman uses the **Search API** as the live
