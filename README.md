@@ -125,11 +125,10 @@ pulls it live and applies **DGCA adverse-weather thresholds**:
 adverse  ⇔  wind ≥ 25 kt   OR   visibility ≤ 1500 m   OR   code ∈ {TS, FG, +RA, GR, FC, …}
 ```
 
-| Airline claimed | METAR shows | Verdict |
+| Airline claimed | Live METAR shows | Verdict |
 |---|---|---|
 | "weather" | clear | 🔴 **MISMATCH** — reclassified operational → **compensation owed** |
 | "weather" | genuinely adverse | 🟡 **CONFIRMED** — excuse holds (meals still owed) |
-| — | no data | ⚪ **INCONCLUSIVE** |
 
 The raw METAR string becomes the court-ready evidence attached to the claim letter.
 

@@ -202,24 +202,29 @@ AIRLINE_POLICY_PAGES = {
 
 
 async def get_airline_delay_policy(airline_slug: str) -> dict:
-    # Structured extraction from these pages needs AI-JSON (extra credits); use the
-    # curated policy data for now regardless of key state.
+    """LIVE airline delay/compensation policy via the Anakin Search API + Groq."""
+    if settings.has_anakin:
+        name = airline_slug.replace("_", " ").title()
+        results = await anakin_search(
+            f"{name} conditions of carriage flight delay compensation weather policy grievance officer email India",
+            cache_ttl=86400,
+        )
+        if results:
+            from services.groq_llm import llm_json
+            block = "\n".join(f"{r.get('title','')}: {(r.get('snippet','') or '')[:300]}" for r in results[:5])
+            data = await llm_json(
+                prompt=f"""From these search results about {name}'s conditions of carriage, extract JSON:
+{{"weather_exception_clause": string, "technical_fault_compensation": string,
+"meal_voucher_threshold_hours": number, "hotel_threshold_hours": number,
+"compensation_amounts_inr": {{"2h": number, "4h": number, "cancelled": number}},
+"denied_boarding_compensation_inr": number, "refund_policy_summary": string,
+"complaint_email": string, "grievance_officer_contact": string}}
+Results:\n{block}""",
+                mock=mockdata.mock_airline_policy(airline_slug),
+            )
+            if isinstance(data, dict) and data:
+                return {**mockdata.mock_airline_policy(airline_slug), **data}
     return mockdata.mock_airline_policy(airline_slug)
-    urls = AIRLINE_POLICY_PAGES.get(airline_slug, [])
-    if not urls:
-        return mockdata.mock_airline_policy(airline_slug)
-    result = await scrape(
-        urls[0], extract_json=True,
-        extraction_prompt="""Extract only these fields from the airline's conditions of carriage.
-        Return valid JSON only, no explanation:
-        {"weather_exception_clause": string, "technical_fault_compensation": string,
-         "meal_voucher_threshold_hours": number, "hotel_threshold_hours": number,
-         "compensation_amounts_inr": {"2h": number, "4h": number, "cancelled": number},
-         "denied_boarding_compensation_inr": number, "refund_policy_summary": string,
-         "complaint_email": string, "grievance_officer_contact": string}""",
-        cache_ttl=86400 * 3,
-    )
-    return result.get("json") or mockdata.mock_airline_policy(airline_slug)
 
 
 # ── Credit-card travel benefits ──────────────────────────────────────────────
@@ -234,27 +239,28 @@ CARD_BENEFIT_URLS = {
 
 
 async def get_card_travel_benefits(card_slug: str) -> dict:
-    # Curated lounge data (AI-JSON extraction can be enabled later for extra credits).
+    """LIVE credit-card lounge access via the Anakin Search API + Groq."""
+    if settings.has_anakin:
+        name = card_slug.replace("_", " ").title()
+        results = await anakin_search(
+            f"{name} credit card complimentary airport lounge access domestic international Priority Pass DreamFolks visits",
+            cache_ttl=86400 * 3,
+        )
+        if results:
+            from services.groq_llm import llm_json
+            block = "\n".join(f"{r.get('title','')}: {(r.get('snippet','') or '')[:300]}" for r in results[:5])
+            data = await llm_json(
+                prompt=f"""From these search results about the {name} credit card's airport lounge benefits, extract JSON:
+{{"card_display_name": string, "lounge_program": string,
+"domestic_lounge_visits": number (999 = unlimited), "domestic_period": string,
+"international_lounge_visits": number (999 = unlimited), "international_period": string,
+"guest_access": string, "how_to_access": string, "helpline": string}}
+Results:\n{block}""",
+                mock=mockdata.mock_card_benefits(card_slug),
+            )
+            if isinstance(data, dict) and data.get("domestic_lounge_visits"):
+                return {**mockdata.mock_card_benefits(card_slug), **data}
     return mockdata.mock_card_benefits(card_slug)
-    url = CARD_BENEFIT_URLS.get(card_slug)
-    if not url:
-        return mockdata.mock_card_benefits(card_slug)
-    result = await scrape(
-        url, extract_json=True,
-        extraction_prompt="""Extract ONLY the complimentary airport LOUNGE access benefits.
-        Return valid JSON only:
-        {"card_display_name": string,
-         "lounge_program": string (e.g. "Priority Pass", "DreamFolks"),
-         "domestic_lounge_visits": number (use 999 for unlimited),
-         "domestic_period": string (e.g. "per year", "per quarter"),
-         "international_lounge_visits": number (use 999 for unlimited),
-         "international_period": string,
-         "guest_access": string,
-         "how_to_access": string,
-         "helpline": string}""",
-        cache_ttl=86400 * 7,
-    )
-    return result.get("json") or mockdata.mock_card_benefits(card_slug)
 
 
 # ── Consumer-court precedents ────────────────────────────────────────────────
