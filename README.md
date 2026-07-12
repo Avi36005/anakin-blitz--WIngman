@@ -9,8 +9,9 @@
 Flight trackers tell you the plane is late. **Wingman tells you the airline lied,
 how much you're owed, and files the claim for you** — in under a minute.
 
-<!-- LIVE LINK — replace after Vercel deploy -->
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-wingman.vercel.app-000?style=for-the-badge&logo=vercel)](https://wingman.vercel.app)
+<!-- LIVE LINKS -->
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-wingman--passenger--rights.vercel.app-000?style=for-the-badge&logo=vercel)](https://wingman-passenger-rights.vercel.app)
+[![Backend Health](https://img.shields.io/badge/Backend%20Health-Live-009688?style=for-the-badge&logo=statuspage)](https://wingman-passenger-rights.vercel.app/health)
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi&logoColor=white)
